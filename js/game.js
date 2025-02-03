@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let timeLeft = SPRINT_DURATION;
     let sprintStarted = false;
     let gameIsPaused = false;
+    let gameState = "welcome"; // "welcome", "playing", "paused", "gameover"
 
     // Constantes pour l'affichage
     const BOARD_TOP_MARGIN = 50; // Espace pour le timer au-dessus du tableau
@@ -45,6 +46,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Constantes pour l'affichage des tickets
     const TICKET_MARGIN = 10; // Espace entre les tickets
     const TICKET_START_Y = 10; // Position Y du premier ticket dans Done
+
+    // Variables pour les intervalles
+    let obstacleInterval;
+    let boostInterval;
 
     // Fonction pour créer un nouveau ticket
     function createNewTicket() {
@@ -85,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function update() {
-        if (gameOver || gameIsPaused) return;
+        if (gameOver || gameIsPaused || !sprintStarted) return;
         
         updateTimer();
 
@@ -149,7 +154,83 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Fonction pour dessiner l'écran d'accueil
+    function drawWelcomeScreen() {
+        // Fond blanc
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Fond gris clair pour la zone de jeu
+        ctx.fillStyle = "#f5f5f5";
+        ctx.fillRect(0, BOARD_TOP_MARGIN, canvas.width, BOARD_HEIGHT);
+
+        // Titre
+        ctx.fillStyle = "black";
+        ctx.font = "30px Arial";
+        ctx.textAlign = "center";
+        let y = BOARD_TOP_MARGIN + 40;
+        ctx.fillText("Agile Post-it Journey", canvas.width/2, y);
+
+        // Objectif principal
+        y += 40;
+        ctx.font = "20px Arial";
+        ctx.fillText("Faites passer un maximum de tickets en Done pendant le sprint !", canvas.width/2, y);
+
+        // Règles du jeu
+        y += 40;
+        ctx.fillText("• Les tickets jaunes ont des points de complexité (1-8)", canvas.width/2, y);
+        y += 30;
+        ctx.fillText("• Les boosts verts vous font avancer", canvas.width/2, y);
+        y += 30;
+        ctx.fillText("• Les obstacles rouges vous font reculer", canvas.width/2, y);
+        y += 30;
+        ctx.fillText("• Game over si bloqué en To Do", canvas.width/2, y);
+        y += 30;
+        ctx.fillText("Durée du sprint : 60 secondes", canvas.width/2, y);
+
+        // Contrôles
+        y += 30;
+        ctx.fillText("Contrôles :", canvas.width/2, y);
+        y += 25;
+        ctx.fillText("↑↓ : Déplacer le ticket", canvas.width/2, y);
+        y += 25;
+        ctx.fillText("ESPACE : Démarrer/Pause", canvas.width/2, y);
+
+        // Exemples visuels
+        const centerX = canvas.width/2;
+        const exampleY = y + 50; // Position des exemples sous les contrôles
+        const spacing = 150;
+
+        // Ticket
+        ctx.fillStyle = "yellow";
+        ctx.fillRect(centerX - spacing - 20, exampleY, 40, 40);
+        ctx.fillStyle = "black";
+        ctx.fillText("5", centerX - spacing, exampleY + 25);
+        ctx.fillText("Ticket (5 pts)", centerX - spacing, exampleY + 60);
+
+        // Boost
+        ctx.fillStyle = "green";
+        ctx.fillRect(centerX - 20, exampleY, 40, 40);
+        ctx.fillStyle = "black";
+        ctx.fillText("Boost", centerX, exampleY + 60);
+
+        // Obstacle
+        ctx.fillStyle = "red";
+        ctx.fillRect(centerX + spacing - 20, exampleY, 40, 40);
+        ctx.fillStyle = "black";
+        ctx.fillText("Impediment", centerX + spacing, exampleY + 60);
+
+        // Instructions de démarrage (déplacé après les exemples)
+        ctx.font = "20px Arial";
+        ctx.fillText("Appuyez sur ESPACE pour commencer", canvas.width/2, exampleY + 100);
+    }
+
     function draw() {
+        if (gameState === "welcome") {
+            drawWelcomeScreen();
+            return;
+        }
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Fond blanc pour tout le canvas
@@ -250,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.fillStyle = "white";
             ctx.font = "30px Arial";
             ctx.textAlign = "center";
-            ctx.fillText("Appuyez sur ESPACE pour démarrer le sprint", canvas.width/2, canvas.height/2);
+            ctx.fillText("Prêt ? Appuyez sur ESPACE !", canvas.width/2, canvas.height/2);
         }
     }
 
@@ -261,23 +342,31 @@ document.addEventListener('DOMContentLoaded', function() {
         requestAnimationFrame(gameLoop);
     }
 
-    // Gestion des événements
+    // Modifier la gestion des événements
     document.addEventListener("keydown", function(event) {
-        if (event.code === "ArrowUp") {
-            if (!gameIsPaused) player.velocityY = -player.speedY;
-        }
-        if (event.code === "ArrowDown") {
-            if (!gameIsPaused) player.velocityY = player.speedY;
-        }
         if (event.code === "Space") {
-            if (!sprintStarted) {
-                // Démarrage du sprint
-                sprintStarted = true;
+            if (gameState === "welcome") {
+                gameState = "playing";
+                sprintStarted = false; // S'assurer que le sprint n'est pas démarré
                 timeLeft = SPRINT_DURATION;
                 score = 0;
+            } else if (!sprintStarted && gameState === "playing") {
+                sprintStarted = true;
+                // Démarrer les spawns seulement quand le sprint commence réellement
+                obstacleInterval = setInterval(spawnObstacle, 2000);
+                boostInterval = setInterval(spawnBoost, 5000);
             } else if (!gameOver) {
-                // Gestion de la pause
                 gameIsPaused = !gameIsPaused;
+            }
+        }
+
+        // Ne permettre le mouvement que si le sprint est démarré
+        if (gameState === "playing" && sprintStarted && !gameIsPaused) {
+            if (event.code === "ArrowUp") {
+                player.velocityY = -player.speedY;
+            }
+            if (event.code === "ArrowDown") {
+                player.velocityY = player.speedY;
             }
         }
     });
@@ -290,7 +379,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Démarrage du jeu
     console.log("Démarrage du jeu");
-    setInterval(spawnObstacle, 2000);
-    setInterval(spawnBoost, 5000);
     gameLoop();
 }); 
