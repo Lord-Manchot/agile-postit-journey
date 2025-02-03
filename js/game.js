@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let score = 0;
     let timeLeft = SPRINT_DURATION;
     let sprintStarted = false;
+    let gameIsPaused = false;
 
     // Constantes pour l'affichage
     const BOARD_TOP_MARGIN = 50; // Espace pour le timer au-dessus du tableau
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateTimer() {
-        if (!sprintStarted || gameOver) return;
+        if (!sprintStarted || gameOver || gameIsPaused) return;
         
         timeLeft -= 1/60;
         if (timeLeft <= 0) {
@@ -84,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function update() {
-        if (gameOver) return;
+        if (gameOver || gameIsPaused) return;
         
         updateTimer();
 
@@ -230,7 +231,19 @@ document.addEventListener('DOMContentLoaded', function() {
         ctx.textAlign = "center";
         ctx.fillText(`Vélocité: ${score} points`, canvas.width/2, BOARD_TOP_MARGIN + BOARD_HEIGHT + 30);
 
-        // Écran de démarrage
+        // Afficher l'écran de pause si le jeu est en pause
+        if (gameIsPaused) {
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.font = "30px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("PAUSE", canvas.width/2, canvas.height/2 - 20);
+            ctx.font = "20px Arial";
+            ctx.fillText("Appuyez sur ESPACE pour reprendre", canvas.width/2, canvas.height/2 + 20);
+        }
+
+        // Garder l'écran de démarrage en dernier
         if (!sprintStarted) {
             ctx.fillStyle = "rgba(0,0,0,0.5)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -251,15 +264,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Gestion des événements
     document.addEventListener("keydown", function(event) {
         if (event.code === "ArrowUp") {
-            player.velocityY = -player.speedY;
+            if (!gameIsPaused) player.velocityY = -player.speedY;
         }
         if (event.code === "ArrowDown") {
-            player.velocityY = player.speedY;
+            if (!gameIsPaused) player.velocityY = player.speedY;
         }
-        if (event.code === "Space" && !sprintStarted) {
-            sprintStarted = true;
-            timeLeft = SPRINT_DURATION;
-            score = 0;
+        if (event.code === "Space") {
+            if (!sprintStarted) {
+                // Démarrage du sprint
+                sprintStarted = true;
+                timeLeft = SPRINT_DURATION;
+                score = 0;
+            } else if (!gameOver) {
+                // Gestion de la pause
+                gameIsPaused = !gameIsPaused;
+            }
         }
     });
 
