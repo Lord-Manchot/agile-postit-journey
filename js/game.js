@@ -51,6 +51,26 @@ document.addEventListener('DOMContentLoaded', function() {
     let obstacleInterval;
     let boostInterval;
 
+    // Système de gestion audio
+    const SOUNDS = {
+        done: document.getElementById('sound-done'),
+        obstacle: document.getElementById('sound-obstacle'),
+        boost: document.getElementById('sound-boost'),
+        start: document.getElementById('sound-start'),
+        end: document.getElementById('sound-end')
+    };
+
+    // Fonction utilitaire pour jouer un son avec gestion du volume
+    function playSound(soundName) {
+        if (SOUNDS[soundName]) {
+            SOUNDS[soundName].volume = 0.5; // Volume à 50%
+            SOUNDS[soundName].currentTime = 0;
+            SOUNDS[soundName].play().catch(error => {
+                console.log("Erreur de lecture audio:", error);
+            });
+        }
+    }
+
     // Fonction pour créer un nouveau ticket
     function createNewTicket() {
         player.x = columns[0];
@@ -85,6 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
         timeLeft -= 1/60;
         if (timeLeft <= 0) {
             gameOver = true;
+            playSound('end'); // Son de fin
             alert(`Sprint terminé !\nVélocité : ${score} points`);
         }
     }
@@ -112,10 +133,12 @@ document.addEventListener('DOMContentLoaded', function() {
             ) {
                 if (player.columnIndex === 0) {
                     gameOver = true;
+                    playSound('end');
                     alert("Game Over ! Un impediment vous a bloqué dès le début...");
                 } else {
                     player.columnIndex--;
                     player.x = columns[player.columnIndex];
+                    playSound('obstacle');
                 }
             }
         }
@@ -147,6 +170,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                         score += player.points;
                         createNewTicket();
+                        playSound('done');
+                    } else {
+                        playSound('boost');
                     }
                 }
                 boosts.splice(i, 1);
@@ -347,12 +373,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (event.code === "Space") {
             if (gameState === "welcome") {
                 gameState = "playing";
-                sprintStarted = false; // S'assurer que le sprint n'est pas démarré
+                sprintStarted = false;
                 timeLeft = SPRINT_DURATION;
                 score = 0;
             } else if (!sprintStarted && gameState === "playing") {
                 sprintStarted = true;
-                // Démarrer les spawns seulement quand le sprint commence réellement
+                playSound('start'); // Son de démarrage
                 obstacleInterval = setInterval(spawnObstacle, 2000);
                 boostInterval = setInterval(spawnBoost, 5000);
             } else if (!gameOver) {
